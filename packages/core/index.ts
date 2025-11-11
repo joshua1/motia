@@ -16,3 +16,16 @@ export { Motia } from './src/motia'
 export { NoPrinter, Printer } from './src/printer'
 export { NoTracer } from './src/observability/no-tracer'
 export { config } from './src/config'
+// Standard Schema utilities for validation library support
+export {
+	isStandardSchema,
+	schemaToJsonSchema,
+	validateWithSchema,
+	validateWithSchemaAsync,
+	validateOrThrow,
+	validateOrThrowAsync,
+	formatValidationErrors,
+	type StandardInput,
+	type InferInput,
+	type InferOutput,
+} from './src/schema/schema-utils'
