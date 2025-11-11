@@ -1,10 +1,10 @@
-import { addAppTab, TabLocation } from '@/stores/use-app-tabs-store'
-import { DynamicIcon, dynamicIconImports, IconName } from 'lucide-react/dynamic'
-import { memo } from 'react'
 import { plugins } from 'virtual:motia-plugins'
+import { DynamicIcon, dynamicIconImports, type IconName } from 'lucide-react/dynamic'
+import { memo } from 'react'
+import { type AppTab, TabLocation } from '@/stores/use-app-tabs-store'
 import { isValidTabLocation } from './utils'
 
-export const registerPluginTabs = (): void => {
+export const registerPluginTabs = (addTab: (position: TabLocation, tab: AppTab) => void): void => {
   if (!Array.isArray(plugins)) {
     console.warn('[Motia] Invalid plugins configuration: expected array')
     return
@@ -60,8 +60,8 @@ export const registerPluginTabs = (): void => {
       })
       PluginContent.displayName = `${plugin.label}Content`
 
-      addAppTab(tabLocation, {
-        id: plugin.label,
+      addTab(tabLocation, {
+        id: plugin.label.toLowerCase(),
         tabLabel: PluginTabLabel,
         content: PluginContent,
       })

@@ -1,4 +1,4 @@
-import { EventConfig, Handlers } from 'motia'
+import type { EventConfig, Handlers } from 'motia'
 import { z } from 'zod'
 import { petStoreService } from './services/pet-store'
 
@@ -10,6 +10,7 @@ export const config: EventConfig = {
   subscribes: ['process-food-order'],
   emits: ['notification'],
   input: z.object({
+    id: z.string(),
     email: z.string(),
     quantity: z.number(),
     petId: z.number(),

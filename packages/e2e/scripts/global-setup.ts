@@ -1,4 +1,4 @@
-import { execSync, exec } from 'child_process'
+import { exec, execSync } from 'child_process'
 import { existsSync, rmSync } from 'fs'
 import path from 'path'
 
@@ -18,7 +18,7 @@ async function globalSetup() {
     const template = process.env.TEST_TEMPLATE || 'nodejs'
 
     console.log(`📦 Creating test project with Motia CLI ${motiaVersion} and template ${template}...`)
-    const createCommand = `npx motia@${motiaVersion} create -n ${TEST_PROJECT_NAME} -t ${template} --confirm`
+    const createCommand = `npx motia@${motiaVersion} create  ${TEST_PROJECT_NAME} -t ${template} --confirm`
 
     execSync(createCommand, {
       stdio: 'pipe',

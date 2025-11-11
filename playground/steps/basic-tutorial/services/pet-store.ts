@@ -1,4 +1,4 @@
-import { Order, Pet } from './types'
+import type { Order, Pet } from './types'
 
 export const petStoreService = {
   createPet: async (pet: Omit<Pet, 'id'>): Promise<Pet> => {
@@ -18,7 +18,7 @@ export const petStoreService = {
       method: 'POST',
       body: JSON.stringify({
         quantity: order?.quantity ?? 1,
-        petId: 1,
+        petId: order?.petId ?? 1,
         shipDate: order?.shipDate ?? new Date().toISOString(),
         status: order?.status ?? 'placed',
       }),

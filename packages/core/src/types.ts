@@ -14,7 +14,7 @@ export type InternalStateManager = {
 	clear(groupId: string): Promise<void>
 }
 
-export type EmitData = { topic: ''; data: unknown }
+export type EmitData = { topic: ''; data: unknown; messageGroupId?: string }
 export type Emitter<TData> = (event: TData) => Promise<void>
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
@@ -31,6 +31,24 @@ export interface FlowContext<TEmitData = never> {
 export type EventHandler<TInput, TEmitData> = (input: TInput, ctx: FlowContext<TEmitData>) => Promise<void>
 
 export type Emit = string | { topic: string; label?: string; conditional?: boolean }
+
+export type HandlerConfig = {
+  ram: number
+  cpu?: number
+  timeout: number
+}
+
+export type QueueConfig = {
+  type: 'fifo' | 'standard'
+  maxRetries: number
+  visibilityTimeout: number
+  delaySeconds: number
+}
+
+export type InfrastructureConfig = {
+  handler?: Partial<HandlerConfig>
+  queue?: Partial<QueueConfig>
+}
 
 export type EventConfig = {
 	type: 'event'
@@ -172,6 +190,10 @@ export type EventManager = {
 export type StepConfig = EventConfig | NoopConfig | ApiRouteConfig | CronConfig
 
 export type Step<TConfig extends StepConfig = StepConfig> = { filePath: string; version: string; config: TConfig }
+
+export type PluginStep<TConfig extends StepConfig = ApiRouteConfig> = Step<TConfig> & {
+  handler?: ApiRouteHandler<any, any, any>
+}
 
 export type Flow = {
 	name: string

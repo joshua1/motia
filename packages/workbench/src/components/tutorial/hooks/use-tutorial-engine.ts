@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { MotiaTutorial } from '../engine/tutorial-engine'
-import { TutorialImage } from '../engine/tutorial-types'
+import type { TutorialImage } from '../engine/tutorial-types'
 import { waitForElementByXPath } from './tutorial-utils'
 
 export const useTutorialEngine = () => {
@@ -156,7 +156,7 @@ export const useTutorialEngine = () => {
   }
 
   useEffect(() => {
-    importFile('tutorial.tsx')
+    importFile('tutorial/tutorial.tsx')
       .then((module) => {
         if (Array.isArray(module.steps) && module.steps.length > 0) {
           MotiaTutorial.register(module.steps)

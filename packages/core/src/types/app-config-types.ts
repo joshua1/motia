@@ -1,11 +1,9 @@
-import { Motia } from '../motia'
-
-export type Runtime = {
-  steps: string
-  streams: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  runtime: any
-}
+import type { CronAdapter } from '../adapters/interfaces/cron-adapter.interface'
+import type { EventAdapter } from '../adapters/interfaces/event-adapter.interface'
+import type { ObservabilityAdapter } from '../adapters/interfaces/observability-adapter.interface'
+import type { StateAdapter } from '../adapters/interfaces/state-adapter.interface'
+import type { StreamAdapterManager } from '../adapters/interfaces/stream-adapter-manager.interface'
+import type { MotiaPluginContext } from '../motia'
 
 export type WorkbenchPlugin = {
   packageName: string
@@ -13,17 +11,27 @@ export type WorkbenchPlugin = {
   label?: string
   labelIcon?: string
   position?: 'bottom' | 'top'
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  cssImports?: string[]
+
   props?: Record<string, any>
 }
 
 export type MotiaPlugin = {
   workbench: WorkbenchPlugin[]
+  dirname?: string
+  steps?: string[]
 }
 
-export type MotiaPluginBuilder = (motia: Motia) => MotiaPlugin
+export type MotiaPluginBuilder = (motia: MotiaPluginContext) => MotiaPlugin
+
+export type AdapterConfig = {
+  state?: StateAdapter
+  streams?: StreamAdapterManager
+  events?: EventAdapter
+  cron?: CronAdapter
+}
 
 export type Config = {
-  runtimes?: Runtime[]
   plugins?: MotiaPluginBuilder[]
+  adapters?: AdapterConfig
 }

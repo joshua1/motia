@@ -3,7 +3,7 @@ import { type StandardSchemaV1 } from '@standard-schema/spec'
 import { schemaToJsonSchema, isStandardSchema } from '../schema/schema-utils'
 
 // Add ts-node registration before dynamic imports
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+
 require('ts-node').register({
 	transpileOnly: true,
 	compilerOptions: { module: 'commonjs' },

@@ -1,4 +1,22 @@
-import { CLIOutputManager, Message } from './cli-output-manager'
+import { flush } from '@amplitude/analytics-node'
+import { logCliError } from '../utils/analytics'
+import { CLIOutputManager, type Message } from './cli-output-manager'
+
+const getCommandName = (): string => {
+  const args = process.argv.slice(2)
+  const commandParts: string[] = []
+
+  for (let i = 0; i < args.length && i < 3; i++) {
+    const arg = args[i]
+    if (!arg.startsWith('-') && !arg.startsWith('--')) {
+      commandParts.push(arg)
+    } else {
+      break
+    }
+  }
+
+  return commandParts.join(' ') || 'unknown'
+}
 
 export class CliContext {
   private readonly output = new CLIOutputManager()
@@ -23,18 +41,20 @@ export class CliContext {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type CliHandler = <TArgs extends Record<string, any>>(args: TArgs, context: CliContext) => Promise<void>
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function handler(handler: CliHandler): (args: Record<string, any>) => Promise<void> {
   return async (args: Record<string, unknown>) => {
     const context = new CliContext()
+    const commandName = getCommandName()
 
     try {
       await handler(args, context)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
+      logCliError(commandName, error)
+      await flush().promise.catch(() => {
+        // Silently fail
+      })
       if (error instanceof Error) {
         context.log('error', (message) => message.tag('failed').append(error.message))
         context.exit(1)

@@ -1,18 +1,30 @@
-import { createEventManager, createServer, createStateAdapter, MotiaPlugin } from '@motiadev/core'
+import {
+  createServer,
+  createStateAdapter,
+  DefaultCronAdapter,
+  DefaultQueueEventAdapter,
+  FileStreamAdapterManager,
+  type MotiaPlugin,
+} from '@motiadev/core'
 import path from 'path'
 import { workbenchBase } from './constants'
 import { generateLockedData, getStepFiles } from './generate-locked-data'
-import { generatePlugins } from './generate-plugins'
+import { loadMotiaConfig } from './load-motia-config'
+import { processPlugins } from './plugins'
 import { activatePythonVenv } from './utils/activate-python-env'
 import { version } from './version'
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 require('ts-node').register({
   transpileOnly: true,
   compilerOptions: { module: 'commonjs' },
 })
 
-export const start = async (port: number, hostname: string, disableVerbose: boolean): Promise<void> => {
+export const start = async (
+  port: number,
+  hostname: string,
+  disableVerbose: boolean,
+  motiaFileStorageDir?: string,
+): Promise<void> => {
   const baseDir = process.cwd()
   const isVerbose = !disableVerbose
 
@@ -24,16 +36,27 @@ export const start = async (port: number, hostname: string, disableVerbose: bool
     activatePythonVenv({ baseDir, isVerbose })
   }
 
-  const dotMotia = path.join(baseDir, '.motia')
-  const lockedData = await generateLockedData(baseDir)
-  const eventManager = createEventManager()
-  const state = createStateAdapter({ adapter: 'default', filePath: dotMotia })
+  const motiaFileStoragePath = motiaFileStorageDir || '.motia'
+
+  const dotMotia = path.join(baseDir, motiaFileStoragePath)
+  const appConfig = await loadMotiaConfig(baseDir)
+  const adapters = {
+    eventAdapter: appConfig.adapters?.events || new DefaultQueueEventAdapter(),
+    cronAdapter: appConfig.adapters?.cron || new DefaultCronAdapter(),
+    streamAdapter: appConfig.adapters?.streams || new FileStreamAdapterManager(baseDir),
+  }
+  const lockedData = await generateLockedData({
+    projectDir: baseDir,
+    streamAdapter: adapters.streamAdapter,
+  })
+  const state = appConfig.adapters?.state || createStateAdapter({ adapter: 'default', filePath: dotMotia })
+
   const config = { isVerbose, isDev: false, version }
-  const motiaServer = createServer(lockedData, eventManager, state, config)
-  const plugins: MotiaPlugin[] = await generatePlugins(motiaServer.motia)
+
+  const motiaServer = createServer(lockedData, state, config, adapters)
+  const plugins: MotiaPlugin[] = await processPlugins(motiaServer)
 
   if (!process.env.MOTIA_DOCKER_DISABLE_WORKBENCH) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { applyMiddleware } = require('@motiadev/workbench/dist/middleware')
     await applyMiddleware({
       app: motiaServer.app,

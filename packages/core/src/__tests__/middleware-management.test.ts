@@ -1,12 +1,12 @@
 import path from 'path'
 import request from 'supertest'
-import { createEventManager } from '../event-manager'
-import { LockedData } from '../locked-data'
+import { InMemoryCronAdapter, InMemoryQueueEventAdapter } from '../adapters/defaults'
+import { MemoryStateAdapter } from '../adapters/defaults/state/memory-state-adapter'
+import { MemoryStreamAdapter } from '../adapters/defaults/stream/memory-stream-adapter'
+import type { LockedData } from '../locked-data'
 import { Printer } from '../printer'
 import { createServer } from '../server'
-import { MemoryStateAdapter } from '../state/adapters/memory-state-adapter'
-import { MemoryStreamAdapter } from '../streams/adapters/memory-stream-adapter'
-import { ApiMiddleware, ApiRouteConfig, Step } from '../types'
+import type { ApiMiddleware, ApiRouteConfig, Step } from '../types'
 
 // Mock callStepFile to prevent actual file execution
 jest.mock('../call-step-file', () => ({
@@ -44,15 +44,17 @@ describe('Middleware Management', () => {
       cronSteps: () => [],
       onStep: () => {},
       applyStreamWrapper: () => {},
-      createStream: () => () => new MemoryStreamAdapter(),
+      createStream: () => () => new MemoryStreamAdapter('test-stream'),
       on: () => {},
     } as unknown as LockedData
 
-    const eventManager = createEventManager()
     const state = new MemoryStateAdapter()
     const config = { isVerbose: true, isDev: true, version: '1.0.0' }
 
-    server = createServer(lockedData, eventManager, state, config)
+    server = createServer(lockedData, state, config, {
+      eventAdapter: new InMemoryQueueEventAdapter(),
+      cronAdapter: new InMemoryCronAdapter(),
+    })
   })
 
   afterEach(async () => {
@@ -105,7 +107,6 @@ describe('Middleware Management', () => {
   })
 
   it('should update middleware when re-adding a route', async () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const callStepFileModule = require('../call-step-file')
 
     // First, set up normal behavior

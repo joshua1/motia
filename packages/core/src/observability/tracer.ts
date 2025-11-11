@@ -1,16 +1,17 @@
-import { TracerFactory } from '.'
-import { LockedData } from '../locked-data'
-import { Logger } from '../logger'
-import { Step } from '../types'
-import { MotiaStream } from '../types-stream'
+import { FileStreamAdapterManager } from '../adapters/defaults/stream/file-stream-adapter-manager'
+import type { LockedData } from '../locked-data'
+import type { Logger } from '../logger'
+import type { Step } from '../types'
+import type { MotiaStream } from '../types-stream'
+import type { TracerFactory } from '.'
 import { createTrace } from './create-trace'
 import { StreamTracer } from './stream-tracer'
 import { TraceManager } from './trace-manager'
 import { TraceStreamAdapter } from './trace-stream-adapter'
-import { Trace, TraceGroup } from './types'
+import type { Trace, TraceGroup } from './types'
 
 const MAX_TRACE_GROUPS = process.env.MOTIA_MAX_TRACE_GROUPS //
-  ? parseInt(process.env.MOTIA_MAX_TRACE_GROUPS)
+  ? Number.parseInt(process.env.MOTIA_MAX_TRACE_GROUPS, 10)
   : 50
 
 export class BaseTracerFactory implements TracerFactory {
@@ -72,15 +73,25 @@ export class BaseTracerFactory implements TracerFactory {
 
     return new StreamTracer(manager, traceGroup, trace, logger)
   }
+
+  async attachToTrace(traceId: string, step: Step, logger: Logger) {
+    const existingGroup = await this.traceGroupStream.get('default', traceId)
+
+    if (!existingGroup) {
+      return this.createTracer(traceId, step, logger)
+    }
+
+    const trace = createTrace(existingGroup, step)
+    const manager = new TraceManager(this.traceStream, this.traceGroupStream, existingGroup, trace)
+
+    return new StreamTracer(manager, existingGroup, trace, logger)
+  }
 }
 
 export const createTracerFactory = (lockedData: LockedData): TracerFactory => {
+  const streamAdapter = lockedData.streamAdapter instanceof FileStreamAdapterManager ? 'file' : 'memory'
   const traceStreamName = 'motia-trace'
-  const traceStreamAdapter = new TraceStreamAdapter<Trace>(
-    lockedData.baseDir,
-    traceStreamName,
-    lockedData.streamAdapter,
-  )
+  const traceStreamAdapter = new TraceStreamAdapter<Trace>(lockedData.baseDir, traceStreamName, streamAdapter)
   const traceStream = lockedData.createStream<Trace>({
     filePath: traceStreamName,
     hidden: true,
@@ -92,11 +103,7 @@ export const createTracerFactory = (lockedData: LockedData): TracerFactory => {
   })()
 
   const traceGroupName = 'motia-trace-group'
-  const traceGroupStreamAdapter = new TraceStreamAdapter<TraceGroup>(
-    lockedData.baseDir,
-    traceGroupName,
-    lockedData.streamAdapter,
-  )
+  const traceGroupStreamAdapter = new TraceStreamAdapter<TraceGroup>(lockedData.baseDir, traceGroupName, streamAdapter)
   const traceGroupStream = lockedData.createStream<TraceGroup>({
     filePath: traceGroupName,
     hidden: true,

@@ -1,12 +1,13 @@
-// packages/snap/src/dev.ts
 import { flush } from '@amplitude/analytics-node'
 import {
-  createEventManager,
   createMermaidGenerator,
   createServer,
   createStateAdapter,
+  DefaultCronAdapter,
+  DefaultQueueEventAdapter,
+  FileStreamAdapterManager,
   getProjectIdentifier,
-  MotiaPlugin,
+  type MotiaPlugin,
   trackEvent,
 } from '@motiadev/core'
 import path from 'path'
@@ -14,14 +15,14 @@ import { deployEndpoints } from './cloud/endpoints'
 import { isTutorialDisabled, workbenchBase } from './constants'
 import { createDevWatchers } from './dev-watchers'
 import { generateLockedData, getStepFiles } from './generate-locked-data'
+import { loadMotiaConfig } from './load-motia-config'
+import { processPlugins } from './plugins'
 import { activatePythonVenv } from './utils/activate-python-env'
 import { identifyUser } from './utils/analytics'
 import { version } from './version'
-import { generatePlugins } from './generate-plugins'
 
 process.env.VITE_CJS_IGNORE_WARNING = 'true'
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 require('ts-node').register({
   transpileOnly: true,
   compilerOptions: { module: 'commonjs' },
@@ -32,6 +33,7 @@ export const dev = async (
   hostname: string,
   disableVerbose: boolean,
   enableMermaid: boolean,
+  motiaFileStorageDir?: string,
 ): Promise<void> => {
   const baseDir = process.cwd()
   const isVerbose = !disableVerbose
@@ -55,18 +57,32 @@ export const dev = async (
     trackEvent('python_environment_activated')
   }
 
-  const lockedData = await generateLockedData(baseDir)
+  const motiaFileStoragePath = motiaFileStorageDir || '.motia'
 
-  const eventManager = createEventManager()
-  const state = createStateAdapter({
-    adapter: 'default',
-    filePath: path.join(baseDir, '.motia'),
+  const appConfig = await loadMotiaConfig(baseDir)
+  const adapters = {
+    eventAdapter: appConfig.adapters?.events || new DefaultQueueEventAdapter(),
+    cronAdapter: appConfig.adapters?.cron || new DefaultCronAdapter(),
+    streamAdapter: appConfig.adapters?.streams || new FileStreamAdapterManager(baseDir, motiaFileStoragePath),
+  }
+
+  const lockedData = await generateLockedData({
+    projectDir: baseDir,
+    streamAdapter: adapters.streamAdapter,
   })
 
+  const state =
+    appConfig.adapters?.state ||
+    createStateAdapter({
+      adapter: 'default',
+      filePath: path.join(baseDir, motiaFileStoragePath),
+    })
+
   const config = { isVerbose }
-  const motiaServer = createServer(lockedData, eventManager, state, config)
+
+  const motiaServer = createServer(lockedData, state, config, adapters)
   const watcher = createDevWatchers(lockedData, motiaServer, motiaServer.motiaEventManager, motiaServer.cronManager)
-  const plugins: MotiaPlugin[] = await generatePlugins(motiaServer.motia)
+  const plugins: MotiaPlugin[] = await processPlugins(motiaServer)
 
   // Initialize mermaid generator
   if (enableMermaid) {
@@ -74,8 +90,6 @@ export const dev = async (
     mermaidGenerator.initialize(lockedData)
     trackEvent('mermaid_generator_initialized')
   }
-
-  watcher.init()
 
   deployEndpoints(motiaServer, lockedData)
 
@@ -106,10 +120,8 @@ export const dev = async (
   })
 
   const { applyMiddleware } = process.env.__MOTIA_DEV_MODE__
-    ? // eslint-disable-next-line @typescript-eslint/no-require-imports
-      require('@motiadev/workbench/middleware')
-    : // eslint-disable-next-line @typescript-eslint/no-require-imports
-      require('@motiadev/workbench/dist/middleware')
+    ? require('@motiadev/workbench/middleware')
+    : require('@motiadev/workbench/dist/middleware')
   await applyMiddleware({
     app: motiaServer.app,
     port,

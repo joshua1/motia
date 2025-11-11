@@ -1,31 +1,20 @@
 import fs from 'fs'
 import path from 'path'
-import { CliContext } from '../cloud/config-utils'
+import type { CliContext } from '../cloud/config-utils'
 import { generateTypes } from '../generate-types'
 import { pythonInstall } from '../install'
+import { pluginDependencies } from '../plugins/plugin-dependencies'
 import { executeCommand } from '../utils/execute-command'
+import { getPackageManager } from '../utils/get-package-manager'
 import { version } from '../version'
 import { pullRules } from './pull-rules'
 import { setupTemplate } from './setup-template'
 import { checkIfDirectoryExists, checkIfFileExists } from './utils'
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 require('ts-node').register({
   transpileOnly: true,
   compilerOptions: { module: 'commonjs' },
 })
-
-const getPackageManager = (dir: string): string => {
-  if (checkIfFileExists(dir, 'yarn.lock')) {
-    return 'yarn'
-  } else if (checkIfFileExists(dir, 'pnpm-lock.yaml')) {
-    return 'pnpm'
-  } else if (checkIfFileExists(dir, 'package-lock.json')) {
-    return 'npm'
-  } else {
-    return 'unknown'
-  }
-}
 
 const installRequiredDependencies = async (packageManager: string, rootDir: string, context: CliContext) => {
   context.log('installing-dependencies', (message) => message.tag('info').append('Installing dependencies...'))
@@ -36,8 +25,11 @@ const installRequiredDependencies = async (packageManager: string, rootDir: stri
     pnpm: 'pnpm add',
   }[packageManager]
 
-  const dependencies = [`motia@${version}`, 'zod@3.24.4'].join(' ')
-  const devDependencies = ['ts-node@10.9.2', 'typescript@5.7.3', '@types/react@18.3.18'].join(' ')
+  const dependencies = [`motia@${version}`, 'zod@3.24.4', ...pluginDependencies.map((dep) => `${dep}@${version}`)].join(
+    ' ',
+  )
+
+  const devDependencies = ['ts-node@10.9.2', 'typescript@5.7.3', '@types/react@19.1.1'].join(' ')
 
   try {
     await executeCommand(`${installCommand} ${dependencies}`, rootDir)
@@ -80,15 +72,6 @@ const installNodeDependencies = async (rootDir: string, context: CliContext) => 
   return packageManager
 }
 
-const wrapUp = async (context: CliContext, packageManager: string) => {
-  context.log('project-setup-completed', (message) =>
-    message.tag('success').append('Project setup completed, happy coding!'),
-  )
-  context.log('package-manager-used', (message) =>
-    message.tag('info').append('To start the development server, run').append(`${packageManager} run dev`, 'gray'),
-  )
-}
-
 type Args = {
   projectName: string
   template: string
@@ -114,6 +97,7 @@ export const create = async ({ projectName, template, cursorEnabled, context }: 
 
   const isCurrentDir = projectName === '.' || projectName === './' || projectName === '.\\'
   const rootDir = isCurrentDir ? process.cwd() : path.join(process.cwd(), projectName)
+  const isPluginTemplate = template === 'plugin'
 
   if (!isCurrentDir && !checkIfDirectoryExists(rootDir)) {
     fs.mkdirSync(path.join(rootDir))
@@ -124,8 +108,13 @@ export const create = async ({ projectName, template, cursorEnabled, context }: 
     context.log('directory-using', (message) => message.tag('info').append('Using current directory'))
   }
 
-  if (!checkIfFileExists(rootDir, 'package.json')) {
-    const finalProjectName = isCurrentDir ? path.basename(rootDir) : projectName
+  // Plugin template handles package.json differently (via template)
+  if (!isPluginTemplate && !checkIfFileExists(rootDir, 'package.json')) {
+    const finalProjectName =
+      !projectName || projectName === '.' || projectName === './' || projectName === '.\\'
+        ? path.basename(process.cwd())
+        : projectName.trim()
+
     const packageJsonContent = {
       name: finalProjectName,
       description: '',
@@ -145,7 +134,7 @@ export const create = async ({ projectName, template, cursorEnabled, context }: 
     context.log('package-json-created', (message) =>
       message.tag('success').append('File').append('package.json', 'cyan').append('has been created.'),
     )
-  } else {
+  } else if (!isPluginTemplate) {
     const packageJsonPath = path.join(rootDir, 'package.json')
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
 
@@ -174,7 +163,8 @@ export const create = async ({ projectName, template, cursorEnabled, context }: 
     )
   }
 
-  if (!checkIfFileExists(rootDir, 'tsconfig.json')) {
+  // Plugin template handles tsconfig.json via template
+  if (!isPluginTemplate && !checkIfFileExists(rootDir, 'tsconfig.json')) {
     const tsconfigContent = {
       compilerOptions: {
         target: 'ES2020',
@@ -201,7 +191,8 @@ export const create = async ({ projectName, template, cursorEnabled, context }: 
     )
   }
 
-  if (!checkIfFileExists(rootDir, '.gitignore')) {
+  // Plugin template handles .gitignore via template
+  if (!isPluginTemplate && !checkIfFileExists(rootDir, '.gitignore')) {
     const gitignoreContent = [
       'node_modules',
       'python_modules',
@@ -219,7 +210,8 @@ export const create = async ({ projectName, template, cursorEnabled, context }: 
     )
   }
 
-  if (cursorEnabled) {
+  // Skip cursor rules for plugin template
+  if (!isPluginTemplate && cursorEnabled) {
     await pullRules({ force: true, rootDir }, context)
   }
 
@@ -227,14 +219,39 @@ export const create = async ({ projectName, template, cursorEnabled, context }: 
     await setupTemplate(template, rootDir, context)
   }
 
-  const packageManager = await installNodeDependencies(rootDir, context)
+  let packageManager: string
+  if (!isPluginTemplate) {
+    packageManager = await installNodeDependencies(rootDir, context)
 
-  if (template === 'python') {
-    await pythonInstall({ baseDir: rootDir })
+    if (template.includes('python')) {
+      await pythonInstall({ baseDir: rootDir })
+    }
+
+    await generateTypes(rootDir)
+  } else {
+    // For plugin template, just detect the package manager
+    packageManager = await preparePackageManager(rootDir, context)
   }
 
-  await generateTypes(rootDir)
-  await wrapUp(context, packageManager)
+  context.log('project-setup-completed', (message) =>
+    message.tag('success').append('All set! Your project is ready to go.'),
+  )
 
-  return
+  context.log('project-location', (message) =>
+    message
+      .tag('success')
+      .append('Created at')
+      .append(`./${path.basename(rootDir)}`, 'cyan')
+      .append('- happy coding!'),
+  )
+
+  context.log('starting-development-server-command', (message) =>
+    message
+      .tag('info')
+      .append('Next steps:')
+      .append(`cd ${path.basename(rootDir)}`, 'gray')
+      .append('then run', 'dark')
+      .append(`${packageManager} run dev`, 'gray')
+      .append('to start the development server.', 'dark'),
+  )
 }

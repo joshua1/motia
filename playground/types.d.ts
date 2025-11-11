@@ -15,20 +15,22 @@ declare module 'motia' {
   interface Handlers {
     'TestStateCheck': EventHandler<{ key: string; expected?: unknown }, never>
     'TestStateApiTrigger': ApiRouteHandler<{}, unknown, { topic: 'test-state-python'; data: unknown }>
+    'Download PDF': ApiRouteHandler<Record<string, unknown>, ApiResponse<200, unknown>, never>
+    'Download HTML': ApiRouteHandler<Record<string, unknown>, ApiResponse<200, unknown>, never>
     'stepA': EventHandler<{}, { topic: 'pms.stepA.done'; data: { msg: string; timestamp: number } }>
     'Parallel Merge': ApiRouteHandler<Record<string, unknown>, unknown, { topic: 'pms.start'; data: {} }>
-    'join-step': EventHandler<{ msg: string; timestamp: number }, { topic: 'pms.join.complete'; data: { stepA: { msg: string; timestamp: number }; stepB: unknown; stepC: unknown; mergedAt: string } }>
-    'JoinComplete': EventHandler<{ stepA: { msg: string; timestamp: number }; stepB: unknown; stepC: unknown; mergedAt: string }, never>
+    'join-step': EventHandler<{ msg: string; timestamp: number }, { topic: 'pms.join.complete'; data: { stepA: { msg: string; timestamp: number }; stepB: { msg: string; timestamp: number }; stepC: { msg: string; timestamp: number }; mergedAt: string } }>
+    'JoinComplete': EventHandler<{ stepA: { msg: string; timestamp: number }; stepB: { msg: string; timestamp: number }; stepC: { msg: string; timestamp: number }; mergedAt: string }, never>
     'CallOpenAi': EventHandler<{ message: string; assistantMessageId: string; threadId: string }, never>
     'OpenAiApi': ApiRouteHandler<{ message: string }, ApiResponse<200, { message: string; from: 'user' | 'assistant'; status: 'created' | 'pending' | 'completed' }>, { topic: 'openai-prompt'; data: { message: string; assistantMessageId: string; threadId: string } }>
     'PeriodicJobHandled': EventHandler<{ message: string }, { topic: 'tested'; data: never }>
     'HandlePeriodicJob': CronHandler<{ topic: 'periodic-job-handled'; data: { message: string } }>
     'StateAuditJob': CronHandler<{ topic: 'notification'; data: { templateId: string; email: string; templateData: Record<string, unknown> } }>
-    'ProcessFoodOrder': EventHandler<{ email: string; quantity: number; petId: number }, { topic: 'notification'; data: { templateId: string; email: string; templateData: Record<string, unknown> } }>
+    'ProcessFoodOrder': EventHandler<{ id: string; email: string; quantity: number; petId: number }, { topic: 'notification'; data: { templateId: string; email: string; templateData: Record<string, unknown> } }>
     'Notification': EventHandler<{ templateId: string; email: string; templateData: Record<string, unknown> }, never>
-    'ApiTrigger': ApiRouteHandler<{ pet: { name: string; photoUrl: string }; foodOrder?: { id: string; quantity: number } }, ApiResponse<200, { id: number; name: string; photoUrl: string }>, { topic: 'process-food-order'; data: { email: string; quantity: number; petId: number } }>
+    'ApiTrigger': ApiRouteHandler<{ pet: { name: string; photoUrl: string }; foodOrder?: { id: string; quantity: number } }, ApiResponse<200, { id: number; name: string; photoUrl: string }>, { topic: 'process-food-order'; data: { id: string; email: string; quantity: number; petId: number } }>
+    'ArrayStep': ApiRouteHandler<Array<{ pet: { name: string; photoUrl: string }; foodOrder?: { id: string; quantity: number } }>, ApiResponse<200, Array<{ id: number; name: string; photoUrl: string }>>, { topic: 'process-food-order'; data: { id: string; email: string; quantity: number; petId: number } }>
     'RubyApiStep': ApiRouteHandler<{ rbMessage: string }, ApiResponse<200, { rbResponse: string }>, never>
-    'ArrayStep': ApiRouteHandler<Array<{ pet: { name: string; photoUrl: string }; foodOrder?: { id: string; quantity: number } }>, ApiResponse<200, Array<{ id: number; name: string; photoUrl: string }>>, { topic: 'process-food-order'; data: { email: string; quantity: number; petId: number } }>
     'Test State With Python': EventHandler<unknown, { topic: 'test-state-check'; data: { key: string; expected?: unknown } }>
     'Tested Event': EventHandler<never, never>
     'Test Event': EventHandler<never, { topic: 'tested'; data: never }>
@@ -41,7 +43,6 @@ declare module 'motia' {
     'PythonProcessFoodOrder': EventHandler<{ id: string; email: string; quantity: unknown; pet_id: unknown }, { topic: 'python-notification'; data: { template_id: string; email: string; template_data: Record<string, unknown> } }>
     'PythonNotification': EventHandler<{ template_id: string; email: string; template_data: Record<string, unknown> }, never>
     'PythonApiTrigger': ApiRouteHandler<{ pet: unknown; food_order?: unknown | unknown }, ApiResponse<200, { id: unknown; name: string; photoUrl: string }>, { topic: 'python-process-food-order'; data: { id: string; email: string; quantity: unknown; pet_id: unknown } }>
-    'Download PDF': ApiRouteHandler<Record<string, unknown>, ApiResponse<200, unknown>, never>
-    'Download HTML': ApiRouteHandler<Record<string, unknown>, ApiResponse<200, unknown>, never>
+    'ApiExampleApiTrigger': ApiRouteHandler<{}, unknown, never>
   }
 }

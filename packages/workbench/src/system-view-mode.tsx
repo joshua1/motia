@@ -9,8 +9,8 @@ import {
 import { useCallback, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { Header } from './components/header/header'
-import { analytics } from './lib/analytics'
-import { AppTabsState, TabLocation, useAppTabsStore } from './stores/use-app-tabs-store'
+import { motiaAnalytics } from './lib/motia-analytics'
+import { type AppTabsState, TabLocation, useAppTabsStore } from './stores/use-app-tabs-store'
 import { useTabsStore } from './stores/use-tabs-store'
 
 const topTabs = (state: AppTabsState) => state.tabs
@@ -32,7 +32,7 @@ export const SystemViewMode = () => {
 
   const onTabChange = useCallback(
     (location: TabLocation) => (newTab: string) => {
-      analytics.track(`${location} tab changed`, { [`new.${location}`]: newTab, tab })
+      motiaAnalytics.track(`${location} tab changed`, { [`new.${location}`]: newTab, tab })
       tabChangeCallbacks[location](newTab)
     },
     [tabChangeCallbacks, tab],

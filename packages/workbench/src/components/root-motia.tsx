@@ -1,9 +1,8 @@
-import React, { PropsWithChildren } from 'react'
-import { useAnalytics } from '@/lib/analytics'
-import { useLogListener } from '@/hooks/use-log-listener'
+import type React from 'react'
+import type { PropsWithChildren } from 'react'
+import { useAnalytics } from '@/lib/motia-analytics'
 
 export const RootMotia: React.FC<PropsWithChildren> = ({ children }) => {
-  useLogListener()
   useAnalytics()
 
   return children
